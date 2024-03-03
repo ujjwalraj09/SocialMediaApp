@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"go/src/ujjwal/initializers"
 	"go/src/ujjwal/models"
 	"net/http"
 
@@ -13,7 +14,9 @@ type FollowController struct {
 }
 
 func NewFollowController(db *gorm.DB) *FollowController {
-	return &FollowController{DB: db}
+	return &FollowController{
+		DB: initializers.DB,
+	}
 }
 
 // FollowUser follows another user
