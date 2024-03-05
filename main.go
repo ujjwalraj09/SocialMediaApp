@@ -30,7 +30,7 @@ func main() {
 
 	//CRUD User operations
 	userController := &controllers.UserController{
-		DB: initializers.DB, // Assuming you have a database connection initialized
+		DB: initializers.DB, 
 	}
 	r.PUT("/users/:id", userController.UpdateUser)
 	r.DELETE("/users/:id", userController.DeleteUser)
@@ -66,7 +66,7 @@ func main() {
 		home.GET("/post/:id/like-count", authrequire, feedController.GetLikeCount)
 
 		//profile image manipulation
-		home.PUT("/users/:id/profile-image", authrequire, userController.UploadProfileImage)
+		home.PUT("/users/:id/profile-image", authrequire, userController.UploadProfileImage)//give user id
 
 		// route for searching posts by tag
 		home.POST("/images", authrequire, feedController.FindImagesByTags)

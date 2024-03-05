@@ -34,7 +34,7 @@ func (fc *FeedController) CreatePost(c *gin.Context) {
 	}
 
 	for _, img := range post.PostImages {
-		if img.ImageBaseString == "" {
+		if string(img.Image) == "" {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Post at least one image are required"})
 			return
 		}
@@ -192,7 +192,7 @@ func (fc *FeedController) FindImagesByTags(c *gin.Context) {
 	var images []string
 	for _, post := range posts {
 		for _, image := range post.PostImages {
-			images = append(images, image.ImageBaseString)
+			images = append(images, string(image.Image))
 		}
 	}
 

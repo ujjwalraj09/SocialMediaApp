@@ -13,7 +13,7 @@ type BookMarkController struct {
 	DB *gorm.DB
 }
 
-// NewFeedController initializes a new FeedController with the provided database connection
+
 func NewBookMarkController() *BookMarkController {
 	// Ensure database connection is established
 	initializers.ConnectToDb()

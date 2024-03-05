@@ -27,9 +27,9 @@ type Post struct {
 
 type PostImage struct {
 	gorm.Model
-	PostID          string `json:"post_id"`
-	ImageID         string `json:"image_id"`
-	ImageBaseString string `json:"image_string"`
+	PostID  string `json:"post_id"`
+	ImageID string `json:"image_id"`
+	Image   []byte `json:"image_data"`
 }
 
 type Comment struct {
