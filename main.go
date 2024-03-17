@@ -20,8 +20,10 @@ func main() {
 	r.POST("/login", controllers.Login)
 	r.GET("/validate", middleware.RequireAuth, controllers.Validate)
 	r.GET("/logout", controllers.Logout)
-	r.GET("/auth/google", controllers.HandleGoogleAuth)
-	r.GET("/auth/google/callback", controllers.HandleGoogleAuth)
+
+	r.GET("/auth/google/login", controllers.HandleOAuthLogin)
+	r.GET("/auth/google/callback", controllers.HandleOAuthCallback)
+
 	r.GET("/home", middleware.RequireAuth, controllers.Home)
 
 	authrequire := middleware.RequireAuth
@@ -30,7 +32,7 @@ func main() {
 
 	//CRUD User operations
 	userController := &controllers.UserController{
-		DB: initializers.DB, 
+		DB: initializers.DB,
 	}
 	r.PUT("/users/:id", userController.UpdateUser)
 	r.DELETE("/users/:id", userController.DeleteUser)
@@ -66,7 +68,7 @@ func main() {
 		home.GET("/post/:id/like-count", authrequire, feedController.GetLikeCount)
 
 		//profile image manipulation
-		home.PUT("/users/:id/profile-image", authrequire, userController.UploadProfileImage)//give user id
+		home.PUT("/users/:id/profile-image", authrequire, userController.UploadProfileImage) //give user id
 
 		// route for searching posts by tag
 		home.POST("/images", authrequire, feedController.FindImagesByTags)

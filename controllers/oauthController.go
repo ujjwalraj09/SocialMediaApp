@@ -2,71 +2,94 @@ package controllers
 
 import (
 	"encoding/json"
+	"io"
 	"net/http"
 	"os"
 
-	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
+
+	"github.com/gin-gonic/gin"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 )
 
-// Replace these with your actual configuration details
-var oauthConfig = &oauth2.Config{
-	ClientID:     os.Getenv("CLIENTID"),
-	ClientSecret: os.Getenv("CLIENTKEY"),
-	RedirectURL:  "http://localhost:3000",
-	Scopes:       []string{"https://www.googleapis.com/auth/userinfo.email"},
+// OAuthConfig represents the Google OAuth configuration
+var OAuthConfig = &oauth2.Config{
+	ClientID:     os.Getenv("GOOGLE_CLIENT_ID"),
+	ClientSecret: os.Getenv("GOOGLE_CLIENT_SECRET"),
+	RedirectURL:  os.Getenv("OAUTH_REDIRECT_URL"),
+	Scopes:       []string{"https://www.googleapis.com/auth/userinfo.email", "https://www.googleapis.com/auth/userinfo.profile"},
 	Endpoint:     google.Endpoint,
 }
 
-// jwtKey represents the secret key for JWT token signing
-var jwtKey = []byte(os.Getenv("SECRET"))
+// HandleOAuthLogin initiates the Google OAuth flow
+func HandleOAuthLogin(c *gin.Context) {
+	url := OAuthConfig.AuthCodeURL("state", oauth2.AccessTypeOffline)
+	c.Redirect(http.StatusTemporaryRedirect, url)
+}
 
-// HandleGoogleAuth handles Google OAuth authentication
-func HandleGoogleAuth(c *gin.Context) {
+// HandleOAuthCallback handles the callback from Google OAuth service
+func HandleOAuthCallback(c *gin.Context) {
 	code := c.Query("code")
-	token, err := oauthConfig.Exchange(c, code)
+	if code == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Missing code parameter"})
+		return
+	}
+
+	token, err := OAuthConfig.Exchange(c, code)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	// Use the token to create a new client
-	client := oauthConfig.Client(c, token)
-
-	// Now you can use this client to make requests to protected resources
-	userInfoEndpoint := "https://www.googleapis.com/oauth2/v3/userinfo"
-	resp, err := client.Get(userInfoEndpoint)
+	client := OAuthConfig.Client(c, token)
+	resp, err := client.Get("https://www.googleapis.com/oauth2/v2/userinfo")
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 	defer resp.Body.Close()
 
-	// Decode the response body into your struct
-	userInfo := struct {
-		Email string `json:"email"`
-		Name  string `json:"name"`
-	}{}
-	if err := json.NewDecoder(resp.Body).Decode(&userInfo); err != nil {
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	// Create JWT token
-	jwtToken := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"email": userInfo.Email,
-		"name":  userInfo.Name,
-	})
-
-	// Generate encoded JWT token
-	tokenString, err := jwtToken.SignedString(jwtKey)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate JWT token"})
+	var userInfo struct {
+		Email string `json:"email"`
+		Name  string `json:"name"`
+		// Add other fields as needed
+	}
+	if err := json.Unmarshal(data, &userInfo); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
+	c.JSON(http.StatusOK, gin.H{"user": userInfo})
+
+	jwtToken := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+
+		"email": userInfo.Email,
+
+		"name": userInfo.Name,
+	})
+
+	// Generate encoded JWT token
+	var jwtKey = []byte(os.Getenv("SECRET"))
+
+	tokenString, err := jwtToken.SignedString(jwtKey)
+
+	if err != nil {
+
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate JWT token"})
+
+		return
+
+	}
+
 	// Send JWT token to client
+
 	c.JSON(http.StatusOK, gin.H{"token": tokenString})
+
 }
