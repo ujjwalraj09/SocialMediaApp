@@ -3,6 +3,7 @@ package controllers
 import (
 	"go/src/ujjwal/initializers"
 	"go/src/ujjwal/models"
+	"io"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -24,31 +25,70 @@ func NewFeedController() *FeedController {
 	}
 }
 
-// CreatePost creates a new post with multiple images
 func (fc *FeedController) CreatePost(c *gin.Context) {
-	var post models.Post
-
-	if err := c.BindJSON(&post); err != nil {
+	// Parse the request body to get the post content and tags
+	var postInput struct {
+		PostContent string   `json:"post_content"`
+		PostTags    []string `json:"post_tags"`
+	}
+	if err := c.BindJSON(&postInput); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	for _, img := range post.PostImages {
-		if string(img.Image) == "" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Post at least one image are required"})
-			return
+	// Handle file uploads for post images
+	form, err := c.MultipartForm()
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	files := form.File["post_images"]
+
+	// Create the new post
+	post := models.Post{
+		PostContent: postInput.PostContent,
+		PostTags:    []models.Tags{},
+	}
+	for _, tag := range postInput.PostTags {
+		post.PostTags = append(post.PostTags, models.Tags{Tag: tag})
+	}
+
+	// Save the post to the database
+	if err := fc.DB.Create(&post).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Handle the uploaded post images
+	for _, file := range files {
+		if file != nil {
+			imageData, err := file.Open()
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+				return
+			}
+			defer imageData.Close()
+
+			// Read the image data and store it in the PostImage model
+			imgBytes, err := io.ReadAll(imageData)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+				return
+			}
+
+			postImage := models.PostImage{
+				PostID: post.ID,
+				Image:  imgBytes,
+			}
+
+			if err := fc.DB.Create(&postImage).Error; err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+				return
+			}
 		}
 	}
 
-	// Create the post in the database
-	if err := fc.DB.Create(&post).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create post"})
-		return
-
-	}
-
-	c.JSON(http.StatusCreated, post)
-
+	c.JSON(http.StatusOK, post)
 }
 
 func (fc *FeedController) GetPost(c *gin.Context) {

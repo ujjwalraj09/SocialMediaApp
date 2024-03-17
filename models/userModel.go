@@ -27,7 +27,7 @@ type Post struct {
 
 type PostImage struct {
 	gorm.Model
-	PostID  string `json:"post_id"`
+	PostID  uint   `json:"post_id"`
 	ImageID string `json:"image_id"`
 	Image   []byte `json:"image_data"`
 }
